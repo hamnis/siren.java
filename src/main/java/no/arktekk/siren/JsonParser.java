@@ -78,14 +78,20 @@ public interface JsonParser<T> {
         }
 
         private Field parseField(Json.JObject field) {
-            Option<String> name = field.getAsString("name");
-            if (!name.isDefined()) {
+            Option<String> maybeName = field.getAsString("name");
+            if (!maybeName.isDefined()) {
                 throw new SirenParseException(String.format("Missing required 'name' field in Field '%s", field));
             }
+            String name = maybeName.get();
             Option<Classes> classes = field.getAsArray("class").map(cs -> new Classes(cs.getListAsStrings()));
-            Field.Type type = Field.Type.fromString(field.getAsString("type").getOrElse("text"));
+            Option<Json.JValue> value = field.get("value");
+            Option<String> title = parseTitle(field);
 
-            return new Field(name.get(), type, classes, field.get("value"), parseTitle(field));
+
+            return field.get("schema").map(schema -> (Field)Field.Schema(name, schema, classes, value, title)).getOrElse(() -> {
+                Field.Type type = Field.Type.fromString(field.getAsString("type").getOrElse("text"));
+                return Field.Default(name, type, classes, value, title);
+            });
         }
 
         private URI getHref(Json.JObject obj, String name) {

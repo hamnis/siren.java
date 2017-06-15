@@ -3,54 +3,165 @@ package no.arktekk.siren;
 import io.vavr.control.Option;
 import net.hamnaberg.json.Json;
 
+import java.util.function.Consumer;
+import java.util.function.Function;
+
 import static io.vavr.control.Option.none;
 
 
-public final class Field {
+public abstract class Field {
     public final String name;
-    public final Type type;
     public final Option<Classes> classes;
     public final Option<Json.JValue> value;
     public final Option<String> title;
 
-    public Field(String name, Type type, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
+    public abstract <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema);
+    public abstract void consume(Consumer<Default> defaultField, Consumer<Schema> schema);
+
+    private Field(String name, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
         this.name = name;
-        this.type = type;
         this.classes = classes;
         this.value = value;
         this.title = title;
     }
 
-    public static Field of(String name) {
-        return new Field(name, Type.TEXT, none(), none(), none());
+    public static final class Default extends Field {
+        public final Type type;
+
+        private Default(String name, Type type, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
+            super(name, classes, value, title);
+            this.type = type;
+        }
+
+        public Default with(Classes classes) {
+            return new Default(name, type, Option.of(classes), value, title);
+        }
+
+        public Default with(Json.JValue value) { // TODO: Få vekk JsonValue
+            return new Default(name, type, classes, Option.of(value), title);
+        }
+
+        public Default with(String title) {
+            return new Default(name, type, classes, value, Option.of(title));
+        }
+
+        @Override
+        public <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema) {
+            return defaultField.apply(this);
+        }
+
+        @Override
+        public void consume(Consumer<Default> defaultField, Consumer<Schema> schema) {
+            defaultField.accept(this);
+        }
+
+        public Type getType() {
+            return type;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            if (!super.equals(o)) return false;
+
+            Default aDefault = (Default) o;
+
+            return type == aDefault.type;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = super.hashCode();
+            result = 31 * result + type.hashCode();
+            return result;
+        }
     }
 
-    public static Field of(String name, Type type) {
-        return new Field(name, type, none(), none(), none());
+    public static final class Schema extends Field {
+
+        public final Json.JValue schema;
+
+        private Schema(String name, Json.JValue schema, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
+            super(name, classes, value, title);
+            this.schema = schema;
+        }
+
+        @Override
+        public <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema) {
+            return schema.apply(this);
+        }
+
+        @Override
+        public void consume(Consumer<Default> defaultField, Consumer<Schema> schema) {
+            schema.accept(this);
+        }
+
+        public Json.JValue getSchema() {
+            return schema;
+        }
+
+        public Schema with(Classes classes) {
+            return new Schema(name, schema, Option.of(classes), value, title);
+        }
+
+        public Schema with(Json.JValue value) { // TODO: Få vekk JsonValue
+            return new Schema(name, schema, classes, Option.of(value), title);
+        }
+
+        public Schema with(String title) {
+            return new Schema(name, schema, classes, value, Option.of(title));
+        }
+
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            if (!super.equals(o)) return false;
+
+            Schema schema1 = (Schema) o;
+
+            return schema.equals(schema1.schema);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = super.hashCode();
+            result = 31 * result + schema.hashCode();
+            return result;
+        }
     }
 
-    public Field with(Classes classes) {
-        return new Field(name, type, Option.of(classes), value, title);
+    public static Field.Schema Schema(String name, Json.JValue schema, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
+        return new Schema(name, schema, classes, value, title);
     }
 
-    public Field with(Json.JValue value) { // TODO: Få vekk JsonValue
-        return new Field(name, type, classes, Option.of(value), title);
+    public static Field.Default Default(String name, Type type, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
+        return new Default(name, type, classes, value, title);
     }
 
-    public Field with(String title) {
-        return new Field(name, type, classes, value, Option.of(title));
+    public static Default of(String name) {
+        return new Default(name, Type.TEXT, none(), none(), none());
+    }
+
+    public static Default of(String name, Type type) {
+        return new Default(name, type, none(), none(), none());
+    }
+
+    public static Schema schema(String name, Json.JValue schema) {
+        return new Schema(name, schema, none(), none(), none());
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (o == null || !(o instanceof Field)) return false;
 
         Field field = (Field) o;
 
         if (!name.equals(field.name)) return false;
         if (!classes.equals(field.classes)) return false;
-        if (type != field.type) return false;
         if (!value.equals(field.value)) return false;
         return title.equals(field.title);
 
@@ -60,7 +171,6 @@ public final class Field {
     public int hashCode() {
         int result = name.hashCode();
         result = 31 * result + classes.hashCode();
-        result = 31 * result + type.hashCode();
         result = 31 * result + value.hashCode();
         result = 31 * result + title.hashCode();
         return result;
@@ -69,10 +179,6 @@ public final class Field {
 
     public String getName() {
         return name;
-    }
-
-    public Type getType() {
-        return type;
     }
 
     public Option<Classes> getClasses() {

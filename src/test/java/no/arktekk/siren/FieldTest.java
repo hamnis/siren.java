@@ -13,7 +13,7 @@ public class FieldTest {
 
     @Test
     public void construct() {
-        Field field = Field.of("foo").with(Json.jString("bar"));
+        Field.Default field = Field.of("foo").with(Json.jString("bar"));
         assertEquals(field.name, "foo");
         assertEquals(field.value, Option.of(Json.jString("bar")));
         assertEquals(field.classes, none());

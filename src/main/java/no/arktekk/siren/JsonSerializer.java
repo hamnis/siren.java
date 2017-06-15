@@ -46,7 +46,12 @@ public interface JsonSerializer<T> {
                         Map<String, Json.JValue> field = new LinkedHashMap<>();
                         field.put("name", Json.jString(f.name));
                         f.classes.forEach(cs -> field.put("class", FromIterableString.apply(cs)));
-                        field.put("type", Json.jString(f.type.value));
+                        f.consume(def -> {
+                            field.put("type", Json.jString(def.type.value));
+                        }, schema -> {
+                            field.put("type", Json.jString("json-schema"));
+                            field.put("schema", schema.schema);
+                        });
                         f.value.forEach(v -> field.put("value", v));
                         f.title.forEach(t -> field.put("title", Json.jString(t)));
                         return Json.jObject(field);
