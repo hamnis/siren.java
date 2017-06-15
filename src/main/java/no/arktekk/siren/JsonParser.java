@@ -88,9 +88,11 @@ public interface JsonParser<T> {
             Option<String> title = parseTitle(field);
 
 
-            return field.get("schema").map(schema -> (Field)Field.Schema(name, schema, classes, value, title)).getOrElse(() -> {
+            Option<Field> maybeSchema = field.get("schema").map(schema -> new Field.Schema(name, schema, classes, value, title));
+            Option<Field> maybeNested = field.getAsArray("fields").map(fs -> new Fields(mapObjectList(fs, this::parseField))).map(schema -> new Field.Nested(name, schema, classes, value, title));
+            return maybeSchema.orElse(maybeNested).getOrElse(() -> {
                 Field.Type type = Field.Type.fromString(field.getAsString("type").getOrElse("text"));
-                return Field.Default(name, type, classes, value, title);
+                return new Field.Default(name, type, classes, value, title);
             });
         }
 

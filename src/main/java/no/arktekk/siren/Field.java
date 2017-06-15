@@ -15,8 +15,8 @@ public abstract class Field {
     public final Option<Json.JValue> value;
     public final Option<String> title;
 
-    public abstract <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema);
-    public abstract void consume(Consumer<Default> defaultField, Consumer<Schema> schema);
+    public abstract <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema, Function<Nested, X> nested);
+    public abstract void consume(Consumer<Default> defaultField, Consumer<Schema> schema, Consumer<Nested> nested);
 
     private Field(String name, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
         this.name = name;
@@ -28,7 +28,7 @@ public abstract class Field {
     public static final class Default extends Field {
         public final Type type;
 
-        private Default(String name, Type type, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
+        public Default(String name, Type type, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
             super(name, classes, value, title);
             this.type = type;
         }
@@ -46,12 +46,12 @@ public abstract class Field {
         }
 
         @Override
-        public <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema) {
+        public <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema, Function<Nested, X> nested) {
             return defaultField.apply(this);
         }
 
         @Override
-        public void consume(Consumer<Default> defaultField, Consumer<Schema> schema) {
+        public void consume(Consumer<Default> defaultField, Consumer<Schema> schema, Consumer<Nested> nested) {
             defaultField.accept(this);
         }
 
@@ -82,18 +82,18 @@ public abstract class Field {
 
         public final Json.JValue schema;
 
-        private Schema(String name, Json.JValue schema, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
+        public Schema(String name, Json.JValue schema, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
             super(name, classes, value, title);
             this.schema = schema;
         }
 
         @Override
-        public <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema) {
+        public <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema, Function<Nested, X> nested) {
             return schema.apply(this);
         }
 
         @Override
-        public void consume(Consumer<Default> defaultField, Consumer<Schema> schema) {
+        public void consume(Consumer<Default> defaultField, Consumer<Schema> schema, Consumer<Nested> nested) {
             schema.accept(this);
         }
 
@@ -133,12 +133,59 @@ public abstract class Field {
         }
     }
 
-    public static Field.Schema Schema(String name, Json.JValue schema, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
-        return new Schema(name, schema, classes, value, title);
-    }
+    public static final class Nested extends Field {
 
-    public static Field.Default Default(String name, Type type, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
-        return new Default(name, type, classes, value, title);
+        public final Fields fields;
+
+        public Nested(String name, Fields fields, Option<Classes> classes, Option<Json.JValue> value, Option<String> title) {
+            super(name, classes, value, title);
+            this.fields = fields;
+        }
+
+        @Override
+        public <X> X fold(Function<Default, X> defaultField, Function<Schema, X> schema, Function<Nested, X> nested) {
+            return nested.apply(this);
+        }
+
+        @Override
+        public void consume(Consumer<Default> defaultField, Consumer<Schema> schema, Consumer<Nested> nested) {
+            nested.accept(this);
+        }
+
+        public Fields getFields() {
+            return fields;
+        }
+
+        public Nested with(Classes classes) {
+            return new Nested(name, fields, Option.of(classes), value, title);
+        }
+
+        public Nested with(Json.JValue value) { // TODO: Få vekk JsonValue
+            return new Nested(name, fields, classes, Option.of(value), title);
+        }
+
+        public Nested with(String title) {
+            return new Nested(name, fields, classes, value, Option.of(title));
+        }
+
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            if (!super.equals(o)) return false;
+
+            Nested nested1 = (Nested) o;
+
+            return fields.equals(nested1.fields);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = super.hashCode();
+            result = 31 * result + fields.hashCode();
+            return result;
+        }
     }
 
     public static Default of(String name) {
@@ -151,6 +198,10 @@ public abstract class Field {
 
     public static Schema schema(String name, Json.JValue schema) {
         return new Schema(name, schema, none(), none(), none());
+    }
+
+    public static Nested nested(String name, Fields fields) {
+        return new Nested(name, fields, none(), none(), none());
     }
 
     @Override

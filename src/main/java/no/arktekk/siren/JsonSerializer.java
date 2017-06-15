@@ -42,20 +42,7 @@ public interface JsonSerializer<T> {
             a.title.forEach(t -> action.put("title", Json.jString(t)));
             a.type.forEach(t -> action.put("type", Json.jString(t.format())));
             a.fields.forEach(fs ->
-                    action.put("fields", Json.jArray(fs.map(f -> {
-                        Map<String, Json.JValue> field = new LinkedHashMap<>();
-                        field.put("name", Json.jString(f.name));
-                        f.classes.forEach(cs -> field.put("class", FromIterableString.apply(cs)));
-                        f.consume(def -> {
-                            field.put("type", Json.jString(def.type.value));
-                        }, schema -> {
-                            field.put("type", Json.jString("json-schema"));
-                            field.put("schema", schema.schema);
-                        });
-                        f.value.forEach(v -> field.put("value", v));
-                        f.title.forEach(t -> field.put("title", Json.jString(t)));
-                        return Json.jObject(field);
-                    }))));
+                    action.put("fields", fromFields(fs)));
             return Json.jObject(action);
         }
 
@@ -67,6 +54,26 @@ public interface JsonSerializer<T> {
             link.type.forEach(type -> map.put("type", Json.jString(type.format())));
             link.title.forEach(title -> map.put("title", Json.jString(title)));
             return Json.jObject(map);
+        }
+
+        private Json.JArray fromFields(Fields fs) {
+            return Json.jArray(fs.map(f -> {
+                Map<String, Json.JValue> field = new LinkedHashMap<>();
+                field.put("name", Json.jString(f.name));
+                f.classes.forEach(cs -> field.put("class", FromIterableString.apply(cs)));
+                f.consume(def -> {
+                    field.put("type", Json.jString(def.type.value));
+                }, schema -> {
+                    field.put("type", Json.jString("json-schema"));
+                    field.put("schema", schema.schema);
+                }, nested -> {
+                    field.put("type", Json.jString("fields"));
+                    field.put("fields", fromFields(nested.fields));
+                });
+                f.value.forEach(v -> field.put("value", v));
+                f.title.forEach(t -> field.put("title", Json.jString(t)));
+                return Json.jObject(field);
+            }));
         }
 
         public Json.JValue serialize(Entity entity) {
